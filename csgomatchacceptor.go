@@ -11,10 +11,9 @@ import (
 	"github.com/go-vgo/robotgo"
 )
 
-var filename string = "point.txt"
+var POINT_FILENAME string = "point.txt"
 var WIN_DETECTED bool = false
-var WAITING bool = false
-var ValidRGBs = []RGB{{76, 175, 80}, {76, 176, 80}, {90, 203, 94}, {90, 203, 95}, {107, 210, 110}}
+var VALID_RGBS = []RGB{{76, 175, 80}, {76, 176, 80}, {90, 203, 94}, {90, 203, 95}, {107, 210, 110}}
 
 type Point struct {
 	x, y int
@@ -25,30 +24,12 @@ type RGB struct {
 }
 
 func (c RGB) check() bool {
-	for _, v := range ValidRGBs {
+	for _, v := range VALID_RGBS {
 		if v == c {
 			return true
 		}
 	}
 	return false
-}
-
-func main() {
-	point, err := GetPoint()
-	if err != nil {
-		fmt.Printf("%s", err)
-		return
-	}
-	fmt.Printf("Point axis has been fetched from point.txt: (%d, %d)\n", point.x, point.y)
-	fmt.Println("The program started. Open CS:GO's window then you can go away from your pc.")
-	DetectThread(point)
-}
-
-func DetectThread(point Point) {
-	for {
-		Detect(point)
-		time.Sleep(time.Second)
-	}
 }
 
 func Detect(point Point) {
@@ -84,10 +65,17 @@ func Detect(point Point) {
 	}
 }
 
+func DetectThread(point Point) {
+	for {
+		Detect(point)
+		time.Sleep(time.Second)
+	}
+}
+
 func GetPoint() (Point, error) {
-	file, err := os.Open(filename)
+	file, err := os.Open(POINT_FILENAME)
 	if err != nil {
-		return Point{-1, -1}, &excepts.PointNotFound{File: filename, Err: err.Error()}
+		return Point{-1, -1}, &excepts.PointNotFound{File: POINT_FILENAME, Err: err.Error()}
 	}
 	defer file.Close()
 
@@ -97,10 +85,21 @@ func GetPoint() (Point, error) {
 	x, y := -1, -1
 	_, err = fmt.Sscanf(line, "%d,%d", &x, &y)
 	if err != nil {
-		return Point{-1, -1}, &excepts.InvalidPointFormat{File: filename}
+		return Point{-1, -1}, &excepts.InvalidPointFormat{File: POINT_FILENAME}
 	}
 	if x < 0 || y < 0 {
-		return Point{-1, -1}, &excepts.InvalidPointCo{File: filename}
+		return Point{-1, -1}, &excepts.InvalidPointCo{File: POINT_FILENAME}
 	}
 	return Point{x, y}, nil
+}
+
+func main() {
+	point, err := GetPoint()
+	if err != nil {
+		fmt.Printf("%s", err)
+		return
+	}
+	fmt.Printf("Point axis has been fetched from point.txt: (%d, %d)\n", point.x, point.y)
+	fmt.Println("The program started. Open CS:GO's window then you can go away from your pc.")
+	DetectThread(point)
 }
