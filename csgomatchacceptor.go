@@ -1,38 +1,58 @@
 package main
 
 import (
-	"bufio"
-	"csgomatchacceptor/excepts"
+	"encoding/json"
 	"fmt"
+	"image"
+	"io"
+	"log"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-vgo/robotgo"
+	tb "gopkg.in/tucnak/telebot.v2"
 )
 
-var POINT_FILENAME string = "point.txt"
+type Config struct {
+	TelegramBotToken string `json:"tgtoken"`
+	TelegramUserID   int    `json:"tguserid"`
+	Test             bool   `json:"test"`
+}
+
+var config = Config{}
 var WIN_DETECTED bool = false
-var VALID_RGBS = []RGB{{76, 175, 80}, {76, 176, 80}, {90, 203, 94}, {90, 203, 95}, {107, 210, 110}}
+var BOT *tb.Bot = nil
 
-type Point struct {
-	x, y int
-}
+func main() {
+	fmt.Println("Started! Switch to CS:GO's window then you can go away from your pc.")
 
-type RGB struct {
-	R, G, B uint8
-}
+	config = LoadConfiguration("config.json")
 
-func (c RGB) check() bool {
-	for _, v := range VALID_RGBS {
-		if v == c {
-			return true
+	if strings.Contains(config.TelegramBotToken, ":") && config.TelegramUserID != 0 {
+		b, err := tb.NewBot(tb.Settings{
+			Token:  config.TelegramBotToken,
+			Poller: &tb.LongPoller{Timeout: 10 * time.Second},
+		})
+		if err != nil {
+			log.Fatal(err)
+			return
 		}
+		BOT = b
+		fmt.Println("Telegram Bot Started!")
+		go b.Start()
 	}
-	return false
+	DetectThread()
 }
 
-func Detect(point Point) {
+func DetectThread() {
+	for {
+		Detect()
+		time.Sleep(time.Second * 1)
+	}
+}
+
+func Detect() {
 	title := robotgo.GetTitle()
 	detect := "Counter-Strike: Global Offensive"
 	if title == detect {
@@ -40,24 +60,51 @@ func Detect(point Point) {
 			WIN_DETECTED = true
 			fmt.Println("CS:GO Window is Active")
 		}
-		color := robotgo.GetPixelColor(point.x, point.y)
-		values, err := strconv.ParseUint(color, 16, 32)
-		if err == nil {
-			red := uint8(values >> 16)
-			green := uint8((values >> 8) & 0xFF)
-			blue := uint8(values & 0xFF)
-			rgb := RGB{red, green, blue}
-			if rgb.check() {
-				robotgo.MoveMouse(point.x, point.y)
-				time.Sleep(time.Millisecond * 500)
-				robotgo.MouseClick()
-				fmt.Println("\n\n==============================================================")
-				fmt.Println("Detected! Clicked to the accept button. Waiting 20 seconds...")
-				fmt.Print("Then the program will run again because maybe accepted match\nmay be not accepted by everybody.")
-				fmt.Println("If you saw the match is\naccepted, you can close the program.")
-				fmt.Println("==============================================================")
-				time.Sleep(time.Second * 20)
+		sx, sy := robotgo.GetScreenSize()
+		bitmap := robotgo.CaptureScreen(42*sx/100, 16*sy/30, sx/8, sy/15)
+		defer robotgo.FreeBitmap(bitmap)
+		robotgo.SaveBitmap(bitmap, "csgomatchaccceptor_tmp.png")
+		file, err := os.Open("csgomatchaccceptor_tmp.png")
+
+		if err != nil {
+			fmt.Println("Error: File could not be opened")
+			return
+		}
+
+		defer file.Close()
+		pixels, err := getPixels(file, 10)
+
+		if err != nil {
+			fmt.Println("Error: Image could not be decoded")
+			return
+		}
+		count := 0
+		total := 0
+		for i := 0; i < 10; i++ {
+			for _, x := range pixels[i] {
+				if x.check() {
+					count++
+				}
+				total++
 			}
+		}
+		percent := (count * 100) / total
+		if percent >= 85 {
+			fmt.Printf("\n\n%%%v\n", percent)
+			fmt.Println("==============================================================")
+			fmt.Println("Detected! Clicked to the accept button. Waiting 20 seconds...")
+			fmt.Print("Then the program will run again because maybe accepted match\nmay be not accepted by everybody.")
+			fmt.Println("If you saw the match is\naccepted, you can close the program.")
+			fmt.Println("==============================================================")
+			if BOT != nil {
+				BOT.Send(tb.ChatID(config.TelegramUserID), "*CSGO MATCH DETECTED*", &tb.SendOptions{ParseMode: "MarkdownV2"})
+			}
+			robotgo.MoveMouse(sx/2, 27*sy/50)
+			time.Sleep(time.Millisecond * 500)
+			if !config.Test {
+				robotgo.MouseClick()
+			}
+			time.Sleep(time.Second * 20)
 		}
 	} else if WIN_DETECTED {
 		WIN_DETECTED = false
@@ -65,41 +112,54 @@ func Detect(point Point) {
 	}
 }
 
-func DetectThread(point Point) {
-	for {
-		Detect(point)
-		time.Sleep(time.Second)
+func LoadConfiguration(file string) Config {
+	var config Config
+	configFile, err := os.Open(file)
+	defer configFile.Close()
+	if err != nil {
+		fmt.Println(err.Error())
 	}
+	jsonParser := json.NewDecoder(configFile)
+	jsonParser.Decode(&config)
+	return config
 }
 
-func GetPoint() (Point, error) {
-	file, err := os.Open(POINT_FILENAME)
-	if err != nil {
-		return Point{-1, -1}, &excepts.PointNotFound{File: POINT_FILENAME, Err: err.Error()}
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	scanner.Scan()
-	line := scanner.Text()
-	x, y := -1, -1
-	_, err = fmt.Sscanf(line, "%d,%d", &x, &y)
-	if err != nil {
-		return Point{-1, -1}, &excepts.InvalidPointFormat{File: POINT_FILENAME}
-	}
-	if x < 0 || y < 0 {
-		return Point{-1, -1}, &excepts.InvalidPointCo{File: POINT_FILENAME}
-	}
-	return Point{x, y}, nil
+type Pixel struct {
+	R int
+	G int
+	B int
+	A int
 }
 
-func main() {
-	point, err := GetPoint()
-	if err != nil {
-		fmt.Printf("%s", err)
-		return
+func rgbaToPixel(r uint32, g uint32, b uint32, a uint32) Pixel {
+	return Pixel{int(r / 257), int(g / 257), int(b / 257), int(a / 257)}
+}
+
+func (c Pixel) check() bool {
+	if c.R >= 75 && c.R <= 108 && c.G >= 175 && c.G <= 215 && c.B >= 75 && c.B <= 115 {
+		return true
 	}
-	fmt.Printf("Point axis has been fetched from point.txt: (%d, %d)\n", point.x, point.y)
-	fmt.Println("The program started. Open CS:GO's window then you can go away from your pc.")
-	DetectThread(point)
+	return false
+}
+
+func getPixels(file io.Reader, maxHeight int) ([][]Pixel, error) {
+	img, _, err := image.Decode(file)
+
+	if err != nil {
+		return nil, err
+	}
+	bounds := img.Bounds()
+	width, height := bounds.Max.X, bounds.Max.Y
+	if height > maxHeight {
+		height = maxHeight
+	}
+	var pixels [][]Pixel
+	for y := 0; y < height; y++ {
+		var row []Pixel
+		for x := 0; x < width; x++ {
+			row = append(row, rgbaToPixel(img.At(x, y).RGBA()))
+		}
+		pixels = append(pixels, row)
+	}
+	return pixels, nil
 }

@@ -4,16 +4,17 @@ CSGO Auto Match Acceptor (experimental)
 Program is only tested in Windows 10.
 
 # How does it work
-It fetch coordinates from "point.txt". Then it detecting pixel color at that point while in CS:GO. If pixel color is any colors of accept button, program will move mouse and click.
+It is taking a screenshot of a certain area of the screen in CS:GO. Then it is getting to pixel colors from screenshot. If pixel colors is match colors of accept button, program will move mouse and click. The area of this screenshot and mouse click position varies according to the screen resolution. Therefore, it may not work correctly every time.
 
-# How to set the point
-- Take a screenshot when you see the accept button in CS:GO.
-- Go to [Image-Map](https://www.image-map.net/), select your screenshot from your pc.
-- Click one time to the green part of accept button in the screenshot.
-- Click "Show Me The Code" button and copy coords in X,Y format here. (coords="X,Y")
-- Paste the coords to points.txt
+# Config
+| key      | type   | description                                              |
+|----------|--------|----------------------------------------------------------|
+| tgtoken  | string | telegram bot token taken from [botfather](https://t.me/BotFather).                 |
+| tguserid | int    | your telegram user id ([find](http://t.me/userinfobot)) |
+| test     | bool   | if true; it just moves the mouse, don't click.           |
+
 
 # Build
-Dependencies: [robotgo](https://github.com/go-vgo/robotgo)
+Dependencies: [robotgo](https://github.com/go-vgo/robotgo) [telebot](https://gopkg.in/tucnak/telebot.v2)
 
 You can build for all platforms. But some compilers and libraries are required for build of RobotGo. RobotGo supports Mac, Windows, and Linux(X11).
