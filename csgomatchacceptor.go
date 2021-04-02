@@ -63,8 +63,8 @@ func Detect() {
 		sx, sy := robotgo.GetScreenSize()
 		bitmap := robotgo.CaptureScreen(42*sx/100, 16*sy/30, sx/8, sy/15)
 		defer robotgo.FreeBitmap(bitmap)
-		robotgo.SaveBitmap(bitmap, "csgomatchaccceptor_tmp.png")
-		file, err := os.Open("csgomatchaccceptor_tmp.png")
+		robotgo.SaveBitmap(bitmap, "csgomatchacceptor_tmp.png")
+		file, err := os.Open("csgomatchacceptor_tmp.png")
 
 		if err != nil {
 			fmt.Println("Error: File could not be opened")
@@ -89,7 +89,7 @@ func Detect() {
 			}
 		}
 		percent := (count * 100) / total
-		if percent >= 85 {
+		if percent >= 60 {
 			fmt.Printf("\n\n%%%v\n", percent)
 			fmt.Println("==============================================================")
 			fmt.Println("Detected! Clicked to the accept button. Waiting 20 seconds...")
