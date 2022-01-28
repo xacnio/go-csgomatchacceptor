@@ -14,6 +14,8 @@ import (
 	tb "gopkg.in/tucnak/telebot.v2"
 )
 
+const VERSION = "1.0.3"
+
 type Config struct {
 	TelegramBotToken string `json:"tgtoken"`
 	TelegramUserID   int    `json:"tguserid"`
@@ -25,6 +27,7 @@ var WIN_DETECTED bool = false
 var BOT *tb.Bot = nil
 
 func main() {
+	fmt.Printf("go-csgomatchacceptor - v%s\n", VERSION)
 	fmt.Println("Started! Switch to CS:GO's window then you can go away from your pc.")
 
 	config = LoadConfiguration("config.json")
@@ -55,13 +58,13 @@ func DetectThread() {
 func Detect() {
 	title := robotgo.GetTitle()
 	detect := "Counter-Strike: Global Offensive"
-	if title == detect {
+	if strings.HasPrefix(title, detect) {
 		if !WIN_DETECTED {
 			WIN_DETECTED = true
 			fmt.Println("CS:GO Window is Active")
 		}
 		sx, sy := robotgo.GetScreenSize()
-		bitmap := robotgo.CaptureScreen(42*sx/100, 16*sy/30, sx/8, sy/15)
+		bitmap := robotgo.CaptureScreen(44*sx/100, 11*sy/29, sx/8, sy/15)
 		defer robotgo.FreeBitmap(bitmap)
 		robotgo.SaveBitmap(bitmap, "csgomatchacceptor_tmp.png")
 		file, err := os.Open("csgomatchacceptor_tmp.png")
@@ -80,7 +83,7 @@ func Detect() {
 		}
 		count := 0
 		total := 0
-		for i := 0; i < 10; i++ {
+		for i := 0; i < len(pixels); i++ {
 			for _, x := range pixels[i] {
 				if x.check() {
 					count++
@@ -99,7 +102,7 @@ func Detect() {
 			if BOT != nil {
 				BOT.Send(tb.ChatID(config.TelegramUserID), "*CSGO MATCH DETECTED*", &tb.SendOptions{ParseMode: "MarkdownV2"})
 			}
-			robotgo.MoveMouse(sx/2, 27*sy/50)
+			robotgo.MoveMouse(sx/2, 20*sy/50)
 			time.Sleep(time.Millisecond * 500)
 			if !config.Test {
 				robotgo.MouseClick()

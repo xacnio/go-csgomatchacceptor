@@ -1,7 +1,7 @@
 # go-csgomatchacceptor
-CSGO Auto Match Acceptor (experimental)
+CSGO Auto Match Acceptor
 (This is my first program in GO, may not be very good)
-Program is only tested in Windows 10.
+Program is only tested in Windows 10/11.
 
 # How does it work
 It is taking a screenshot of a certain area of the screen in CS:GO. Then it is getting to pixel colors from screenshot. If pixel colors is match colors of accept button, program will move mouse and click. The area of this screenshot and mouse click position varies according to the screen resolution. Therefore, it may not work correctly every time.
